@@ -92,7 +92,7 @@ function App() {
       {/* Navbar */}
       <nav className="bg-white shadow-sm sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-black text-blue-600 tracking-tight">ShopFake.</h1>
+          <h1 className="text-2xl font-black text-blue-600 tracking-tight">ShopFake</h1>
           <button 
             onClick={() => setIsCartOpen(true)}
             className="relative bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition"
