@@ -1,14 +1,18 @@
 import { useState, useEffect } from 'react';
 
-    function App() {
+function App() {
   const [products, setProducts] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [category, setCategory] = useState('all');
+  const [searchQuery, setSearchQuery] = useState(''); // NEW: Search state
   const [cart, setCart] = useState([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  
+  // NEW: Checkout Modal state
+  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
 
-  // 1. Fetch Data from FakeStoreAPI
+  // 1. Fetch Data
   useEffect(() => {
     fetch('https://fakestoreapi.com/products')
       .then(res => res.json())
@@ -19,15 +23,24 @@ import { useState, useEffect } from 'react';
       });
   }, []);
 
-  // 2. Filter by Category
-  const handleFilter = (cat) => {
-    setCategory(cat);
-    if (cat === 'all') {
-      setFilteredProducts(products);
-    } else {
-      setFilteredProducts(products.filter(p => p.category === cat));
+  // 2. Handle Filters (Category + Search combined)
+  useEffect(() => {
+    let result = products;
+
+    // Apply Category Filter
+    if (category !== 'all') {
+      result = result.filter(p => p.category === category);
     }
-  };
+
+    // Apply Search Filter
+    if (searchQuery) {
+      result = result.filter(p => 
+        p.title.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+    }
+
+    setFilteredProducts(result);
+  }, [category, searchQuery, products]);
 
   // 3. Cart Logic
   const addToCart = (product) => {
@@ -55,11 +68,23 @@ import { useState, useEffect } from 'react';
     });
   };
 
+  // NEW: Remove Item Function
+  const removeFromCart = (id) => {
+    setCart(prevCart => prevCart.filter(item => item.id !== id));
+  };
+
   const calculateTotal = () => {
     return cart.reduce((total, item) => total + (item.price * item.quantity), 0).toFixed(2);
   };
 
   const totalItems = cart.reduce((total, item) => total + item.quantity, 0);
+
+  // NEW: Handle Checkout
+  const handleCheckout = () => {
+    setIsCheckoutOpen(true); // Open modal
+    setCart([]); // Clear cart
+    setIsCartOpen(false); // Close cart drawer
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 relative overflow-x-hidden">
@@ -67,7 +92,7 @@ import { useState, useEffect } from 'react';
       {/* Navbar */}
       <nav className="bg-white shadow-sm sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-black text-blue-600 tracking-tight">ShopFake</h1>
+          <h1 className="text-2xl font-black text-blue-600 tracking-tight">ShopFake.</h1>
           <button 
             onClick={() => setIsCartOpen(true)}
             className="relative bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition"
@@ -81,30 +106,48 @@ import { useState, useEffect } from 'react';
           </button>
         </div>
       </nav>
-      
+
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 py-8">
         
-        {/* Category Filters */}
-        <div className="flex gap-4 mb-8 overflow-x-auto pb-2">
-          {['all', 'electronics', 'jewelery', "men's clothing", "women's clothing"].map(cat => (
-            <button
-              key={cat}
-              onClick={() => handleFilter(cat)}
-              className={`px-4 py-2 rounded-full whitespace-nowrap font-medium capitalize border ${
-                category === cat 
-                  ? 'bg-blue-600 text-white border-blue-600' 
-                  : 'bg-white text-gray-600 border-gray-300 hover:border-blue-600'
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
+        {/* Search and Filters Row */}
+        <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-8">
+          
+          {/* Category Filters */}
+          <div className="flex gap-2 overflow-x-auto pb-2 w-full md:w-auto">
+            {['all', 'electronics', 'jewelery', "men's clothing", "women's clothing"].map(cat => (
+              <button
+                key={cat}
+                onClick={() => setCategory(cat)}
+                className={`px-4 py-2 rounded-full whitespace-nowrap font-medium capitalize border ${
+                  category === cat 
+                    ? 'bg-blue-600 text-white border-blue-600' 
+                    : 'bg-white text-gray-600 border-gray-300 hover:border-blue-600'
+                }`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+
+          {/* NEW: Search Bar */}
+          <div className="w-full md:w-72">
+            <input 
+              type="text" 
+              placeholder="Search products..." 
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
         </div>
 
         {/* Product Grid */}
         {loading ? (
           <div className="text-center py-20 text-xl font-semibold text-gray-500">Loading products...</div>
+        ) : filteredProducts.length === 0 ? (
+          <div className="text-center py-20 text-xl font-semibold text-gray-500">No products found.</div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {filteredProducts.map(product => (
@@ -152,10 +195,17 @@ import { useState, useEffect } from 'react';
                       <h4 className="text-sm font-bold line-clamp-1">{item.title}</h4>
                       <p className="text-blue-600 font-bold">${item.price.toFixed(2)}</p>
                       
-                      <div className="flex items-center gap-3 mt-2">
-                        <button onClick={() => updateQuantity(item.id, -1)} className="bg-gray-200 px-2 rounded hover:bg-gray-300">-</button>
-                        <span className="font-medium text-sm">{item.quantity}</span>
-                        <button onClick={() => updateQuantity(item.id, 1)} className="bg-gray-200 px-2 rounded hover:bg-gray-300">+</button>
+                      <div className="flex items-center justify-between mt-2">
+                        {/* Quantity Controls */}
+                        <div className="flex items-center gap-3">
+                          <button onClick={() => updateQuantity(item.id, -1)} className="bg-gray-200 px-2 rounded hover:bg-gray-300">-</button>
+                          <span className="font-medium text-sm">{item.quantity}</span>
+                          <button onClick={() => updateQuantity(item.id, 1)} className="bg-gray-200 px-2 rounded hover:bg-gray-300">+</button>
+                        </div>
+                        {/* NEW: Remove Button */}
+                        <button onClick={() => removeFromCart(item.id)} className="text-red-500 hover:text-red-700 text-sm font-semibold">
+                          Remove
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -169,7 +219,11 @@ import { useState, useEffect } from 'react';
               <span className="text-lg font-bold">Total:</span>
               <span className="text-2xl font-black text-blue-600">${calculateTotal()}</span>
             </div>
-            <button className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition">
+            <button 
+              onClick={handleCheckout}
+              disabled={cart.length === 0}
+              className={`w-full py-3 rounded-lg font-bold transition ${cart.length === 0 ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+            >
               Checkout
             </button>
           </div>
@@ -177,8 +231,25 @@ import { useState, useEffect } from 'react';
         </div>
       </div>
 
+      {/* NEW: Checkout Success Modal */}
+      {isCheckoutOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 px-4">
+          <div className="bg-white p-8 rounded-2xl shadow-2xl max-w-sm w-full text-center">
+            <div className="text-5xl mb-4">✅</div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Order Successful!</h2>
+            <p className="text-gray-600 mb-6">Thank you for your purchase. Your simulated order has been confirmed.</p>
+            <button 
+              onClick={() => setIsCheckoutOpen(false)}
+              className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-700 transition"
+            >
+              Continue Shopping
+            </button>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
-      
+
 export default App;
